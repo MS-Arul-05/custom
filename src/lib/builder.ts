@@ -6,36 +6,54 @@ export interface BuilderStyle {
   basePrice: number // paise
   fabric: string
   image: string
+  /** Transparent-background garment mockups used in the live preview. */
+  mockFront: string
+  mockBack: string
+  /** Blend used to tint the garment to the selected colour:
+   *  'multiply' for light/white garments, 'screen' for the dark base. */
+  blend: 'multiply' | 'screen'
 }
 
 export const BUILDER_STYLES: BuilderStyle[] = [
   {
     id: 'oversized',
     name: 'Oversized Tee',
-    basePrice: 49900,
+    basePrice: 40000,
     fabric: '240 GSM combed cotton',
-    image: '/products/suriya-kaaval-karuppu.jpg',
+    image: '/products/mockups/oversized-front.png',
+    mockFront: '/products/mockups/oversized-front.png',
+    mockBack: '/products/mockups/oversized-back.png',
+    blend: 'multiply',
   },
   {
     id: 'regular',
     name: 'Regular Tee',
-    basePrice: 39900,
+    basePrice: 30000,
     fabric: '190 GSM bio-washed cotton',
-    image: '/products/karuppu-god-mode.jpg',
+    image: '/products/mockups/regular-front.png',
+    mockFront: '/products/mockups/regular-front.png',
+    mockBack: '/products/mockups/regular-back.png',
+    blend: 'screen',
   },
   {
     id: 'hoodie',
     name: 'Hoodie',
-    basePrice: 89900,
+    basePrice: 50000,
     fabric: '380 GSM brushed fleece',
-    image: '/products/ajith-kumar-racing-hoodie-black.jpg',
+    image: '/products/mockups/hoodie-front.png',
+    mockFront: '/products/mockups/hoodie-front.png',
+    mockBack: '/products/mockups/hoodie-back.png',
+    blend: 'multiply',
   },
   {
     id: 'polo',
     name: 'Polo',
-    basePrice: 59900,
+    basePrice: 35000,
     fabric: '220 GSM piqué',
-    image: '/products/24h-series-racing-polo.jpg',
+    image: '/products/mockups/polo-front.png',
+    mockFront: '/products/mockups/polo-front.png',
+    mockBack: '/products/mockups/polo-back.png',
+    blend: 'multiply',
   },
 ]
 

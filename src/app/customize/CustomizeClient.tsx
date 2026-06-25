@@ -7,16 +7,18 @@ import {
 import { useCartStore } from '@/store/cart'
 import { formatPrice } from '@/lib/utils'
 import {
-  BUILDER_STYLES, BUILDER_COLORS, BUILDER_FONTS, DESIGN_TEMPLATES, TEXT_ALIGN, CUSTOM_PRINT_FEE, generateAIDesign,
+  BUILDER_STYLES, BUILDER_COLORS, BUILDER_FONTS, DESIGN_TEMPLATES, TEXT_ALIGN, generateAIDesign,
   type BuilderStyle, type BuilderColor, type BuilderFontId, type TextAlign,
 } from '@/lib/builder'
 
 type Side = 'front' | 'back' | '360'
+type Face = 'front' | 'back'
 interface Design { kind: 'none' | 'upload' | 'ai' | 'template'; value: string }
 interface Pos { x: number; y: number }
 
 const STEPS = ['Style', 'Colour', 'Design', 'Text', 'Preview', 'Add to cart']
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
+const NONE: Design = { kind: 'none', value: '' }
 
 export default function CustomizeClient() {
   const router = useRouter()
@@ -25,33 +27,45 @@ export default function CustomizeClient() {
   const [step, setStep] = useState(0)
   const [style, setStyle] = useState<BuilderStyle>(BUILDER_STYLES[0])
   const [color, setColor] = useState<BuilderColor>(BUILDER_COLORS[1]) // Black
-  const [design, setDesign] = useState<Design>({ kind: 'none', value: '' })
+  const [frontDesign, setFrontDesign] = useState<Design>(NONE)
+  const [backDesign, setBackDesign] = useState<Design>(NONE)
+  const [designTarget, setDesignTarget] = useState<Face>('front') // for AI + templates
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [text, setText] = useState({ content: '', fontId: 'heading' as BuilderFontId, color: '#FFFFFF', align: 'center' as TextAlign })
   const [side, setSide] = useState<Side>('front')
+  const [rotation, setRotation] = useState(0)
   const [size, setSize] = useState('M')
   const [added, setAdded] = useState(false)
 
-  const [designPos, setDesignPos] = useState<Pos>({ x: 50, y: 42 })
+  const [frontPos, setFrontPos] = useState<Pos>({ x: 50, y: 42 })
+  const [backPos, setBackPos] = useState<Pos>({ x: 50, y: 42 })
   const [textPos, setTextPos] = useState<Pos>({ x: 50, y: 70 })
   const canvasRef = useRef<HTMLDivElement>(null)
-  const dragLayer = useRef<'design' | 'text' | null>(null)
+  const dragLayer = useRef<'design' | 'text' | 'rotate' | null>(null)
+  const rotateRef = useRef<{ startX: number; startRot: number }>({ startX: 0, startRot: 0 })
 
-  const hasDesign = design.kind !== 'none'
+  const hasFront = frontDesign.kind !== 'none'
+  const hasBack = backDesign.kind !== 'none'
   const hasText = text.content.trim().length > 0
-  const printFee = hasDesign || hasText ? CUSTOM_PRINT_FEE : 0
-  const price = style.basePrice + printFee
+  const price = style.basePrice
 
-  // ---- dragging ----
+  const setDesignFor = (target: Face, d: Design) => (target === 'front' ? setFrontDesign(d) : setBackDesign(d))
+
+  // ---- dragging / rotating ----
   const onPointerMove = useCallback((e: PointerEvent) => {
+    if (dragLayer.current === 'rotate') {
+      const dx = e.clientX - rotateRef.current.startX
+      setRotation(rotateRef.current.startRot + dx * 0.8)
+      return
+    }
     if (!dragLayer.current || !canvasRef.current) return
     const r = canvasRef.current.getBoundingClientRect()
     const x = Math.min(92, Math.max(8, ((e.clientX - r.left) / r.width) * 100))
     const y = Math.min(92, Math.max(8, ((e.clientY - r.top) / r.height) * 100))
-    if (dragLayer.current === 'design') setDesignPos({ x, y })
-    else setTextPos({ x, y })
-  }, [])
+    if (dragLayer.current === 'design') (side === 'back' ? setBackPos : setFrontPos)({ x, y })
+    else if (dragLayer.current === 'text') setTextPos({ x, y })
+  }, [side])
 
   const stopDrag = useCallback(() => {
     dragLayer.current = null
@@ -62,31 +76,47 @@ export default function CustomizeClient() {
   const startDrag = (layer: 'design' | 'text') => (e: React.PointerEvent) => {
     if (side === '360') return
     e.preventDefault()
+    e.stopPropagation()
     dragLayer.current = layer
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', stopDrag)
   }
 
-  const onUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const startRotate = (e: React.PointerEvent) => {
+    if (side !== '360') return
+    e.preventDefault()
+    dragLayer.current = 'rotate'
+    rotateRef.current = { startX: e.clientX, startRot: rotation }
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', stopDrag)
+  }
+
+  const onUploadFor = (target: Face) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => setDesign({ kind: 'upload', value: reader.result as string })
+    reader.onload = () => {
+      setDesignFor(target, { kind: 'upload', value: reader.result as string })
+      setSide(target)
+    }
     reader.readAsDataURL(file)
+    e.target.value = ''
   }
 
   const runAI = async () => {
     if (!aiPrompt.trim()) return
     setAiLoading(true)
     const url = await generateAIDesign(aiPrompt)
-    setDesign({ kind: 'ai', value: url })
+    setDesignFor(designTarget, { kind: 'ai', value: url })
+    setSide(designTarget)
     setAiLoading(false)
   }
 
   const handleAddToCart = () => {
-    const summaryBits = [style.name, color.name]
-    if (hasDesign) summaryBits.push(design.kind === 'template' ? `${design.value} graphic` : 'custom print')
-    if (hasText) summaryBits.push(`“${text.content}”`)
+    const bits = [style.name, color.name]
+    if (hasFront) bits.push('front print')
+    if (hasBack) bits.push('back print')
+    if (hasText) bits.push(`“${text.content}”`)
     addItem({
       kind: 'custom',
       productId: `custom-${style.id}-${color.name}`.toLowerCase(),
@@ -94,78 +124,139 @@ export default function CustomizeClient() {
       price,
       size,
       color: color.name,
-      image: design.kind === 'upload' || design.kind === 'ai' ? design.value : style.image,
-      meta: { summary: summaryBits.join(' · ') },
+      image: frontDesign.kind === 'upload' || frontDesign.kind === 'ai' ? frontDesign.value : style.mockFront,
+      meta: { summary: bits.join(' · ') },
     })
     setAdded(true)
     setTimeout(() => router.push('/cart'), 900)
   }
 
-  const canNext = step === 0 ? !!style : true
-
   // ---- garment preview ----
+  const maskStyle = (src: string): React.CSSProperties => ({
+    WebkitMaskImage: `url("${src}")`,
+    maskImage: `url("${src}")`,
+    WebkitMaskSize: 'contain',
+    maskSize: 'contain',
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+    WebkitMaskPosition: 'center',
+    maskPosition: 'center',
+  })
+
+  const renderFace = (face: Face, interactive: boolean) => {
+    const src = face === 'front' ? style.mockFront : style.mockBack
+    const design = face === 'front' ? frontDesign : backDesign
+    const pos = face === 'front' ? frontPos : backPos
+    return (
+      <div className="absolute inset-0" style={{ isolation: 'isolate' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={`${style.name} ${face}`} className="absolute inset-0 w-full h-full object-contain" draggable={false} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: color.hex, mixBlendMode: style.blend, ...maskStyle(src) }} />
+
+        {design.kind !== 'none' && (
+          <div
+            onPointerDown={interactive ? startDrag('design') : undefined}
+            className={`absolute w-[34%] aspect-square -translate-x-1/2 -translate-y-1/2 flex items-center justify-center ${interactive ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+          >
+            {design.kind === 'template' ? (
+              <span className="text-6xl leading-none" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))' }}>{design.value}</span>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={design.value} alt="Your design" className="w-full h-full object-contain pointer-events-none" draggable={false} />
+            )}
+          </div>
+        )}
+
+        {face === 'front' && hasText && (
+          <div
+            onPointerDown={interactive ? startDrag('text') : undefined}
+            className={`absolute -translate-x-1/2 -translate-y-1/2 px-2 max-w-[80%] ${interactive ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            style={{ left: `${textPos.x}%`, top: `${textPos.y}%` }}
+          >
+            <p className="font-extrabold leading-tight break-words" style={{ color: text.color, fontFamily: BUILDER_FONTS.find((f) => f.id === text.fontId)?.css, textAlign: text.align, fontSize: '22px' }}>
+              {text.content}
+            </p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const staticFace: Face = side === 'back' ? 'back' : 'front'
+
   const Garment = (
     <div
       ref={canvasRef}
-      className="relative w-full max-w-[360px] aspect-[4/5] mx-auto select-none touch-none"
-      style={side === '360' ? { animation: 'fitbox-spin-y 6s linear infinite', transformStyle: 'preserve-3d' } : undefined}
+      onPointerDown={side === '360' ? startRotate : undefined}
+      className={`relative w-full max-w-[360px] aspect-[4/5] mx-auto select-none touch-none ${side === '360' ? 'cursor-ew-resize' : ''}`}
+      style={{ perspective: '1100px' }}
     >
-      {/* Shirt body */}
-      <div className="absolute inset-x-[10%] top-[12%] bottom-[4%] rounded-[28px] shadow-inner" style={{ background: color.hex, border: '1px solid rgba(0,0,0,0.12)' }} />
-      {/* Sleeves */}
-      <div className="absolute left-0 top-[12%] w-[20%] h-[26%] rounded-l-[20px] rounded-tr-[10px]" style={{ background: color.hex, border: '1px solid rgba(0,0,0,0.12)' }} />
-      <div className="absolute right-0 top-[12%] w-[20%] h-[26%] rounded-r-[20px] rounded-tl-[10px]" style={{ background: color.hex, border: '1px solid rgba(0,0,0,0.12)' }} />
-      {/* Collar */}
-      <div className="absolute left-1/2 -translate-x-1/2 top-[10%] w-[26%] h-[7%] rounded-b-full" style={{ background: 'rgba(0,0,0,0.12)' }} />
-
-      {/* Side tag */}
-      <span className="absolute top-2 left-2 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-badge" style={{ background: 'var(--bg-dark)', color: '#fff' }}>
-        {side === '360' ? '360°' : side}
+      <span className="absolute top-2 left-2 z-10 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-badge" style={{ background: 'var(--bg-dark)', color: '#fff' }}>
+        {side === '360' ? `360° · ${Math.round(((rotation % 360) + 360) % 360)}°` : side}
       </span>
 
-      {/* Design layer (front only, or back) */}
-      {hasDesign && side !== 'back' && (
-        <div
-          onPointerDown={startDrag('design')}
-          className="absolute w-[34%] aspect-square -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing flex items-center justify-center"
-          style={{ left: `${designPos.x}%`, top: `${designPos.y}%` }}
-        >
-          {design.kind === 'template' ? (
-            <span className="text-6xl leading-none" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))' }}>{design.value}</span>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={design.value} alt="Your design" className="w-full h-full object-contain pointer-events-none" />
-          )}
+      {side === '360' ? (
+        <div className="absolute inset-0" style={{ transformStyle: 'preserve-3d', transform: `rotateY(${rotation}deg)` }}>
+          <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden' }}>{renderFace('front', false)}</div>
+          <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>{renderFace('back', false)}</div>
         </div>
+      ) : (
+        renderFace(staticFace, true)
       )}
+    </div>
+  )
 
-      {/* Text layer */}
-      {hasText && side !== 'back' && (
-        <div
-          onPointerDown={startDrag('text')}
-          className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing px-2 max-w-[80%]"
-          style={{ left: `${textPos.x}%`, top: `${textPos.y}%` }}
+  // Reusable front/back/360 switcher
+  const ViewToggle = (
+    <div className="flex gap-2 justify-center">
+      {(['front', 'back', '360'] as Side[]).map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => setSide(s)}
+          className="flex items-center gap-1.5 px-4 h-9 rounded-btn text-sm font-bold capitalize transition-colors"
+          style={{
+            border: `2px solid ${side === s ? 'var(--accent)' : 'var(--border)'}`,
+            background: side === s ? 'var(--accent-light)' : 'var(--bg-surface)',
+            color: side === s ? 'var(--accent)' : 'var(--text-primary)',
+          }}
         >
-          <p
-            className="font-extrabold leading-tight break-words"
-            style={{ color: text.color, fontFamily: BUILDER_FONTS.find((f) => f.id === text.fontId)?.css, textAlign: text.align, fontSize: '22px' }}
-          >
-            {text.content}
-          </p>
-        </div>
-      )}
+          {s === '360' && <RotateCw size={14} />} {s}
+        </button>
+      ))}
+    </div>
+  )
 
-      {side === 'back' && (hasDesign || hasText) && (
-        <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-xs" style={{ color: color.contrast, opacity: 0.5 }}>
-          Back · add a back print on the design step
-        </p>
-      )}
+  const canNext = step === 0 ? !!style : true
+
+  // ---- upload dropzone ----
+  const renderUploadZone = (face: Face, design: Design) => (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>{face} design</p>
+        {design.kind !== 'none' && (
+          <button type="button" onClick={() => setDesignFor(face, NONE)} className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--error)' }}>
+            <Trash2 size={12} /> Remove
+          </button>
+        )}
+      </div>
+      <label className="flex items-center justify-center gap-2 h-20 rounded-card border-2 border-dashed cursor-pointer text-sm font-semibold overflow-hidden relative" style={{ borderColor: design.kind !== 'none' ? 'var(--accent)' : 'var(--border)', color: 'var(--text-secondary)' }}>
+        {design.kind === 'upload' || design.kind === 'ai' ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={design.value} alt={`${face} design`} className="h-full object-contain" />
+        ) : design.kind === 'template' ? (
+          <span className="text-3xl">{design.value}</span>
+        ) : (
+          <><Upload size={16} /> Upload {face} image</>
+        )}
+        <input type="file" accept="image/*" onChange={onUploadFor(face)} className="hidden" />
+      </label>
     </div>
   )
 
   return (
     <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-      {/* Header */}
       <div className="mb-8">
         <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--accent)' }}>
           <Sparkles size={14} /> Custom builder
@@ -178,26 +269,11 @@ export default function CustomizeClient() {
       {/* Stepper */}
       <div className="flex items-center gap-1 sm:gap-2 mb-8 overflow-x-auto no-scrollbar pb-1">
         {STEPS.map((label, i) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => i <= step && setStep(i)}
-            className="flex items-center gap-2 shrink-0"
-            disabled={i > step}
-          >
-            <span
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
-              style={{
-                background: i < step ? 'var(--success)' : i === step ? 'var(--accent)' : 'var(--bg-surface)',
-                color: i <= step ? '#fff' : 'var(--text-tertiary)',
-                border: i > step ? '1px solid var(--border)' : 'none',
-              }}
-            >
+          <button key={label} type="button" onClick={() => i <= step && setStep(i)} className="flex items-center gap-2 shrink-0" disabled={i > step}>
+            <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors" style={{ background: i < step ? 'var(--success)' : i === step ? 'var(--accent)' : 'var(--bg-surface)', color: i <= step ? '#fff' : 'var(--text-tertiary)', border: i > step ? '1px solid var(--border)' : 'none' }}>
               {i < step ? <Check size={14} /> : i + 1}
             </span>
-            <span className="text-sm font-semibold hidden sm:inline" style={{ color: i === step ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-              {label}
-            </span>
+            <span className="text-sm font-semibold hidden sm:inline" style={{ color: i === step ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{label}</span>
             {i < STEPS.length - 1 && <ChevronRight size={14} className="hidden sm:inline" style={{ color: 'var(--text-tertiary)' }} />}
           </button>
         ))}
@@ -211,16 +287,7 @@ export default function CustomizeClient() {
             <Panel title="Pick a style" icon={Shirt}>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {BUILDER_STYLES.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setStyle(s)}
-                    className="rounded-card p-4 text-left transition-all"
-                    style={{
-                      border: `2px solid ${style.id === s.id ? 'var(--accent)' : 'var(--border)'}`,
-                      background: style.id === s.id ? 'var(--accent-light)' : 'var(--bg-surface)',
-                    }}
-                  >
+                  <button key={s.id} type="button" onClick={() => setStyle(s)} className="rounded-card p-4 text-left transition-all" style={{ border: `2px solid ${style.id === s.id ? 'var(--accent)' : 'var(--border)'}`, background: style.id === s.id ? 'var(--accent-light)' : 'var(--bg-surface)' }}>
                     <Shirt size={22} style={{ color: 'var(--accent)' }} />
                     <p className="text-sm font-bold mt-2" style={{ color: 'var(--text-primary)' }}>{s.name}</p>
                     <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{s.fabric}</p>
@@ -236,16 +303,8 @@ export default function CustomizeClient() {
             <Panel title="Choose a colour" icon={Sparkles}>
               <div className="flex flex-wrap gap-3">
                 {BUILDER_COLORS.map((c) => (
-                  <button
-                    key={c.name}
-                    type="button"
-                    onClick={() => { setColor(c); setText((t) => ({ ...t, color: c.contrast })) }}
-                    className="flex flex-col items-center gap-2"
-                  >
-                    <span
-                      className="w-14 h-14 rounded-full"
-                      style={{ background: c.hex, border: '1px solid rgba(0,0,0,0.15)', outline: color.name === c.name ? '2px solid var(--accent)' : '2px solid transparent', outlineOffset: '2px' }}
-                    />
+                  <button key={c.name} type="button" onClick={() => { setColor(c); setText((t) => ({ ...t, color: c.contrast })) }} className="flex flex-col items-center gap-2">
+                    <span className="w-14 h-14 rounded-full" style={{ background: c.hex, border: '1px solid rgba(0,0,0,0.15)', outline: color.name === c.name ? '2px solid var(--accent)' : '2px solid transparent', outlineOffset: '2px' }} />
                     <span className="text-xs font-semibold" style={{ color: color.name === c.name ? 'var(--accent)' : 'var(--text-secondary)' }}>{c.name}</span>
                   </button>
                 ))}
@@ -253,16 +312,25 @@ export default function CustomizeClient() {
             </Panel>
           )}
 
-          {/* Step 2 — Design */}
+          {/* Step 2 — Design (front + back) */}
           {step === 2 && (
             <Panel title="Add a design" icon={Upload}>
               <div className="space-y-6">
-                <div>
-                  <p className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Upload art or logo</p>
-                  <label className="flex items-center justify-center gap-2 h-24 rounded-card border-2 border-dashed cursor-pointer text-sm font-semibold" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-                    <Upload size={18} /> Drop an image or click to upload
-                    <input type="file" accept="image/*" onChange={onUpload} className="hidden" />
-                  </label>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {renderUploadZone('front', frontDesign)}
+                  {renderUploadZone('back', backDesign)}
+                </div>
+
+                {/* Target toggle for AI + templates */}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Apply AI / template to</span>
+                  <div className="flex gap-2">
+                    {(['front', 'back'] as Face[]).map((f) => (
+                      <button key={f} type="button" onClick={() => setDesignTarget(f)} className="px-3 h-8 rounded-btn text-xs font-bold capitalize" style={{ border: `2px solid ${designTarget === f ? 'var(--accent)' : 'var(--border)'}`, background: designTarget === f ? 'var(--accent-light)' : 'var(--bg-surface)', color: designTarget === f ? 'var(--accent)' : 'var(--text-primary)' }}>
+                        {f}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -270,14 +338,7 @@ export default function CustomizeClient() {
                     <Wand2 size={15} style={{ color: 'var(--accent)' }} /> Generate with AI
                   </p>
                   <div className="flex gap-2">
-                    <input
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder="e.g. a neon tiger in chrome"
-                      aria-label="AI design prompt"
-                      className="flex-1 h-11 px-4 rounded-btn text-sm outline-none"
-                      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                    />
+                    <input value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="e.g. a neon tiger in chrome" aria-label="AI design prompt" className="flex-1 h-11 px-4 rounded-btn text-sm outline-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                     <button type="button" onClick={runAI} disabled={aiLoading} className="h-11 px-5 rounded-btn text-white text-sm font-bold flex items-center gap-2 disabled:opacity-60" style={{ background: 'var(--accent)' }}>
                       {aiLoading ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />}
                       {aiLoading ? 'Generating…' : 'Generate'}
@@ -288,26 +349,17 @@ export default function CustomizeClient() {
                 <div>
                   <p className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Or pick a template</p>
                   <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                    {DESIGN_TEMPLATES.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setDesign({ kind: 'template', value: t.emoji })}
-                        className="aspect-square rounded-card flex items-center justify-center text-2xl transition-all"
-                        style={{ background: 'var(--bg-surface)', border: `2px solid ${design.kind === 'template' && design.value === t.emoji ? 'var(--accent)' : 'var(--border)'}` }}
-                        title={t.label}
-                      >
-                        {t.emoji}
-                      </button>
-                    ))}
+                    {DESIGN_TEMPLATES.map((t) => {
+                      const cur = designTarget === 'front' ? frontDesign : backDesign
+                      const sel = cur.kind === 'template' && cur.value === t.emoji
+                      return (
+                        <button key={t.id} type="button" onClick={() => { setDesignFor(designTarget, { kind: 'template', value: t.emoji }); setSide(designTarget) }} className="aspect-square rounded-card flex items-center justify-center text-2xl transition-all" style={{ background: 'var(--bg-surface)', border: `2px solid ${sel ? 'var(--accent)' : 'var(--border)'}` }} title={t.label}>
+                          {t.emoji}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
-
-                {hasDesign && (
-                  <button type="button" onClick={() => setDesign({ kind: 'none', value: '' })} className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--error)' }}>
-                    <Trash2 size={14} /> Remove design
-                  </button>
-                )}
               </div>
             </Panel>
           )}
@@ -316,15 +368,7 @@ export default function CustomizeClient() {
           {step === 3 && (
             <Panel title="Add text" icon={Type}>
               <div className="space-y-5">
-                <input
-                  value={text.content}
-                  onChange={(e) => setText((t) => ({ ...t, content: e.target.value }))}
-                  placeholder="Your text…"
-                  aria-label="Custom text"
-                  maxLength={24}
-                  className="w-full h-12 px-4 rounded-btn text-base outline-none"
-                  style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                />
+                <input value={text.content} onChange={(e) => setText((t) => ({ ...t, content: e.target.value }))} placeholder="Your text…" aria-label="Custom text" maxLength={24} className="w-full h-12 px-4 rounded-btn text-base outline-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>Font</p>
                   <div className="flex flex-wrap gap-2">
@@ -355,23 +399,19 @@ export default function CustomizeClient() {
                     </div>
                   </div>
                 </div>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Text prints on the front. Drag it on the preview to reposition.</p>
               </div>
             </Panel>
           )}
 
-          {/* Step 4 — Preview controls */}
+          {/* Step 4 — Preview */}
           {step === 4 && (
             <Panel title="Live preview" icon={Eye}>
               <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-                Drag the design and text on the mockup to position them. Switch views below.
+                Drag the design and text on the mockup to position them. Use the <b>Front / Back / 360°</b> switch under
+                the preview — in 360° mode, drag the garment left/right or use the slider to rotate it manually.
               </p>
-              <div className="flex gap-2">
-                {(['front', 'back', '360'] as Side[]).map((s) => (
-                  <button key={s} type="button" onClick={() => setSide(s)} className="flex items-center gap-1.5 px-4 h-10 rounded-btn text-sm font-bold capitalize" style={{ border: `2px solid ${side === s ? 'var(--accent)' : 'var(--border)'}`, background: side === s ? 'var(--accent-light)' : 'var(--bg-surface)', color: side === s ? 'var(--accent)' : 'var(--text-primary)' }}>
-                    {s === '360' && <RotateCw size={14} />} {s}
-                  </button>
-                ))}
-              </div>
+              {ViewToggle}
             </Panel>
           )}
 
@@ -389,7 +429,8 @@ export default function CustomizeClient() {
               <div className="rounded-card p-4 mb-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
                 <Row label="Style" value={style.name} />
                 <Row label="Colour" value={color.name} />
-                <Row label="Design" value={hasDesign ? (design.kind === 'template' ? `${design.value} graphic` : 'Custom print') : 'None'} />
+                <Row label="Front print" value={hasFront ? (frontDesign.kind === 'template' ? `${frontDesign.value} graphic` : 'Custom image') : 'None'} />
+                <Row label="Back print" value={hasBack ? (backDesign.kind === 'template' ? `${backDesign.value} graphic` : 'Custom image') : 'None'} />
                 <Row label="Text" value={hasText ? `“${text.content}”` : 'None'} />
                 <Row label="Size" value={size} />
                 <div className="flex justify-between pt-3 mt-1 border-t text-base font-bold" style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}>
@@ -404,22 +445,11 @@ export default function CustomizeClient() {
 
           {/* Nav */}
           <div className="flex items-center justify-between mt-8">
-            <button
-              type="button"
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
-              disabled={step === 0}
-              className="flex items-center gap-1.5 h-11 px-5 rounded-btn text-sm font-bold disabled:opacity-40"
-              style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-            >
+            <button type="button" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0} className="flex items-center gap-1.5 h-11 px-5 rounded-btn text-sm font-bold disabled:opacity-40" style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
               <ChevronLeft size={16} /> Back
             </button>
             {step < STEPS.length - 1 && (
-              <button
-                type="button"
-                onClick={() => canNext && setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-                className="flex items-center gap-1.5 h-11 px-6 rounded-btn text-white text-sm font-bold"
-                style={{ background: 'var(--accent)' }}
-              >
+              <button type="button" onClick={() => canNext && setStep((s) => Math.min(STEPS.length - 1, s + 1))} className="flex items-center gap-1.5 h-11 px-6 rounded-btn text-white text-sm font-bold" style={{ background: 'var(--accent)' }}>
                 Next <ChevronRight size={16} />
               </button>
             )}
@@ -432,12 +462,23 @@ export default function CustomizeClient() {
             <div className="rounded-card py-6" style={{ background: 'var(--bg-primary)' }}>
               {Garment}
             </div>
-            <div className="flex items-center justify-between mt-4">
+
+            {/* Always-visible view controls */}
+            <div className="mt-4">{ViewToggle}</div>
+            {side === '360' && (
+              <div className="mt-3 flex items-center gap-3">
+                <RotateCw size={15} style={{ color: 'var(--text-secondary)' }} />
+                <input type="range" min={0} max={360} value={Math.round(((rotation % 360) + 360) % 360)} onChange={(e) => setRotation(Number(e.target.value))} className="flex-1 accent-[var(--accent)]" aria-label="Rotate garment" />
+                <span className="text-xs font-semibold w-9 text-right" style={{ color: 'var(--text-secondary)' }}>{Math.round(((rotation % 360) + 360) % 360)}°</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
               <div>
                 <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Custom {style.name}</p>
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{color.name} · {style.fabric}</p>
               </div>
-              <p className="font-heading font-extrabold text-xl" style={{ color: 'var(--accent)' }}>{formatPrice(price)}</p>
+              <p className="font-heading font-extrabold text-2xl" style={{ color: 'var(--accent)' }}>{formatPrice(price)}</p>
             </div>
           </div>
         </div>

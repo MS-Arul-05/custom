@@ -37,20 +37,25 @@ export default function Navbar() {
           {/* Logo */}
           <Link
             href="/"
-            className="font-heading font-extrabold tracking-tight text-xl flex items-center gap-1.5 absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0"
+            className="font-heading font-extrabold tracking-tight text-2xl md:text-3xl flex items-center gap-2 absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0"
             style={{ color: 'var(--text-primary)' }}
           >
-            <Zap size={20} fill="var(--accent)" style={{ color: 'var(--accent)' }} />
+            <span
+              className="flex items-center justify-center rounded-lg shrink-0"
+              style={{ width: 36, height: 36, background: 'var(--accent)' }}
+            >
+              <Zap size={22} fill="#fff" style={{ color: '#fff' }} />
+            </span>
             FITBOX
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center gap-7">
+          <nav className="hidden lg:flex items-center gap-8">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium flex items-center gap-1 transition-colors"
+                className="text-base font-semibold flex items-center gap-1.5 transition-colors"
                 style={{ color: link.highlight ? 'var(--accent)' : 'var(--text-secondary)' }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.color = link.highlight
@@ -63,7 +68,7 @@ export default function Navbar() {
                     : 'var(--text-secondary)')
                 }
               >
-                {link.highlight && <Sparkles size={13} />}
+                {link.highlight && <Sparkles size={15} />}
                 {link.label}
               </Link>
             ))}
@@ -109,10 +114,15 @@ export default function Navbar() {
           >
             <div className="flex items-center justify-between mb-8">
               <span
-                className="font-heading font-extrabold text-lg flex items-center gap-1.5"
+                className="font-heading font-extrabold text-xl flex items-center gap-2"
                 style={{ color: 'var(--text-primary)' }}
               >
-                <Zap size={18} fill="var(--accent)" style={{ color: 'var(--accent)' }} />
+                <span
+                  className="flex items-center justify-center rounded-lg shrink-0"
+                  style={{ width: 30, height: 30, background: 'var(--accent)' }}
+                >
+                  <Zap size={18} fill="#fff" style={{ color: '#fff' }} />
+                </span>
                 FITBOX
               </span>
               <button

@@ -1,7 +1,28 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { Sparkles, ArrowRight, Zap } from 'lucide-react'
 
+const HERO_SLIDES = [
+  '/hero/hero-1.jpg',
+  '/hero/hero-2.jpg',
+  '/hero/hero-3.jpg',
+  '/hero/hero-4.jpg',
+  '/hero/hero-5.jpg',
+  '/hero/hero-6.jpg',
+]
+
 export default function Hero() {
+  const [active, setActive] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setActive((i) => (i + 1) % HERO_SLIDES.length)
+    }, 2000)
+    return () => clearInterval(id)
+  }, [])
+
   return (
     <section className="relative overflow-hidden" style={{ background: 'var(--bg-dark)' }}>
       {/* Glow accents */}
@@ -63,21 +84,44 @@ export default function Hero() {
             </div>
           </div>
 
-          {/* Hero visual */}
+          {/* Hero visual — auto-rotating photo cards */}
           <div className="relative hidden lg:block">
             <div
               className="aspect-[4/5] rounded-modal overflow-hidden relative"
               style={{ background: 'linear-gradient(135deg, #FF6B00 0%, #E55F00 100%)' }}
             >
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span
-                  className="font-heading font-extrabold text-white/90 text-center leading-none"
-                  style={{ fontSize: 'clamp(60px, 8vw, 120px)' }}
-                >
-                  FIT
-                  <br />
-                  BOX
-                </span>
+              {HERO_SLIDES.map((src, i) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt=""
+                  aria-hidden={i !== active ? 'true' : 'false'}
+                  className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-out"
+                  style={{ opacity: i === active ? 1 : 0 }}
+                />
+              ))}
+              {/* FITBOX wordmark badge */}
+              <span
+                className="absolute top-4 left-4 font-heading font-extrabold text-white leading-none px-3 py-1.5 rounded-btn"
+                style={{ background: 'rgba(0,0,0,0.45)', fontSize: '14px', letterSpacing: '0.08em' }}
+              >
+                FITBOX
+              </span>
+              {/* Slide dots */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                {HERO_SLIDES.map((src, i) => (
+                  <button
+                    key={src}
+                    type="button"
+                    aria-label={`Show slide ${i + 1}`}
+                    onClick={() => setActive(i)}
+                    className="h-1.5 rounded-full transition-all duration-300"
+                    style={{
+                      width: i === active ? 20 : 6,
+                      background: i === active ? '#fff' : 'rgba(255,255,255,0.5)',
+                    }}
+                  />
+                ))}
               </div>
             </div>
           </div>
