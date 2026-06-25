@@ -1,15 +1,15 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { ShoppingBag, Menu, X, Search, Sparkles, Zap } from 'lucide-react'
+import { ShoppingBag, Menu, X, Search, Zap, Store, Palette, Gift, LayoutGrid, Flame } from 'lucide-react'
 import { useCartStore } from '@/store/cart'
 
 const NAV_LINKS = [
-  { href: '/shop', label: 'Shop' },
-  { href: '/customize', label: 'Customize', highlight: true },
-  { href: '/mystery-box', label: 'Mystery Box' },
-  { href: '/collections', label: 'Collections' },
-  { href: '/drops', label: 'Drops' },
+  { href: '/shop', label: 'Shop', icon: Store },
+  { href: '/customize', label: 'Customize', icon: Palette, highlight: true },
+  { href: '/mystery-box', label: 'Mystery Box', icon: Gift },
+  { href: '/collections', label: 'Collections', icon: LayoutGrid },
+  { href: '/drops', label: 'Drops', icon: Flame },
 ]
 
 export default function Navbar() {
@@ -68,7 +68,7 @@ export default function Navbar() {
                     : 'var(--text-secondary)')
                 }
               >
-                {link.highlight && <Sparkles size={15} />}
+                <link.icon size={16} />
                 {link.label}
               </Link>
             ))}
@@ -142,7 +142,7 @@ export default function Navbar() {
                   className="py-3 px-3 rounded-btn text-base font-semibold flex items-center gap-2"
                   style={{ color: link.highlight ? 'var(--accent)' : 'var(--text-primary)' }}
                 >
-                  {link.highlight && <Sparkles size={16} />}
+                  <link.icon size={18} />
                   {link.label}
                 </Link>
               ))}

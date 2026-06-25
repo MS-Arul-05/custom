@@ -90,9 +90,9 @@ export default function Hero() {
           </div>
 
           {/* Hero visual — auto-rotating photo cards */}
-          <div className="relative w-full max-w-sm mx-auto lg:max-w-none lg:mx-0 order-first lg:order-none">
+          <div className="relative w-full flex justify-center lg:block order-first lg:order-none">
             <div
-              className="aspect-[4/5] rounded-modal overflow-hidden relative ring-1 ring-white/10"
+              className="aspect-[4/5] rounded-modal overflow-hidden relative ring-1 ring-white/10 h-[62vh] max-h-[460px] w-auto lg:h-auto lg:w-full lg:max-h-none"
               style={{
                 background: 'linear-gradient(135deg, #FF6B00 0%, #E55F00 100%)',
                 boxShadow: '0 30px 60px -20px rgba(0,0,0,0.55)',
