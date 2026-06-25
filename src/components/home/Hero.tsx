@@ -106,7 +106,7 @@ export default function Hero() {
                   aria-hidden={i !== active ? 'true' : 'false'}
                   draggable={false}
                   loading={i === 0 ? 'eager' : 'lazy'}
-                  className="absolute inset-0 w-full h-full object-cover select-none transition-opacity duration-700 ease-out"
+                  className="absolute inset-0 w-full h-full object-contain select-none transition-opacity duration-700 ease-out"
                   style={{ opacity: i === active ? 1 : 0 }}
                 />
               ))}
