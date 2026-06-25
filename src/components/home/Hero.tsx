@@ -31,8 +31,13 @@ export default function Hero() {
         style={{ background: 'var(--accent)' }}
         aria-hidden
       />
-      <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28 relative">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <div
+        className="absolute -bottom-40 -left-32 w-[420px] h-[420px] rounded-full blur-3xl opacity-20"
+        style={{ background: 'var(--accent)' }}
+        aria-hidden
+      />
+      <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-28 relative">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
           <div>
             <span
               className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] px-3 py-1.5 rounded-full mb-6"
@@ -85,10 +90,13 @@ export default function Hero() {
           </div>
 
           {/* Hero visual — auto-rotating photo cards */}
-          <div className="relative hidden lg:block">
+          <div className="relative w-full max-w-sm mx-auto lg:max-w-none lg:mx-0 order-first lg:order-none">
             <div
-              className="aspect-[4/5] rounded-modal overflow-hidden relative"
-              style={{ background: 'linear-gradient(135deg, #FF6B00 0%, #E55F00 100%)' }}
+              className="aspect-[4/5] rounded-modal overflow-hidden relative ring-1 ring-white/10"
+              style={{
+                background: 'linear-gradient(135deg, #FF6B00 0%, #E55F00 100%)',
+                boxShadow: '0 30px 60px -20px rgba(0,0,0,0.55)',
+              }}
             >
               {HERO_SLIDES.map((src, i) => (
                 <img
@@ -96,17 +104,48 @@ export default function Hero() {
                   src={src}
                   alt=""
                   aria-hidden={i !== active ? 'true' : 'false'}
-                  className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-out"
+                  draggable={false}
+                  loading={i === 0 ? 'eager' : 'lazy'}
+                  className="absolute inset-0 w-full h-full object-cover select-none transition-opacity duration-700 ease-out"
                   style={{ opacity: i === active ? 1 : 0 }}
                 />
               ))}
+              {/* Gradient overlay for legibility */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.5) 100%)' }}
+                aria-hidden
+              />
               {/* FITBOX wordmark badge */}
               <span
-                className="absolute top-4 left-4 font-heading font-extrabold text-white leading-none px-3 py-1.5 rounded-btn"
+                className="absolute top-4 left-4 font-heading font-extrabold text-white leading-none px-3 py-1.5 rounded-btn backdrop-blur-sm"
                 style={{ background: 'rgba(0,0,0,0.45)', fontSize: '14px', letterSpacing: '0.08em' }}
               >
                 FITBOX
               </span>
+              {/* New drop pill */}
+              <span
+                className="absolute top-4 right-4 inline-flex items-center gap-1 text-white font-bold uppercase tracking-wide px-2.5 py-1 rounded-full"
+                style={{ background: 'var(--accent)', fontSize: '10px' }}
+              >
+                <Zap size={11} fill="#fff" style={{ color: '#fff' }} /> New drop
+              </span>
+              {/* Floating product chip */}
+              <div
+                className="absolute left-4 bottom-12 flex items-center gap-2.5 px-3 py-2 rounded-2xl backdrop-blur-md"
+                style={{ background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.22)' }}
+              >
+                <span
+                  className="flex items-center justify-center rounded-lg shrink-0"
+                  style={{ width: 30, height: 30, background: 'var(--accent)' }}
+                >
+                  <Sparkles size={15} className="text-white" />
+                </span>
+                <div className="leading-tight">
+                  <p className="text-white font-bold text-xs">Custom Oversized</p>
+                  <p className="text-white/75" style={{ fontSize: '11px' }}>from ₹400 · 240 GSM</p>
+                </div>
+              </div>
               {/* Slide dots */}
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
                 {HERO_SLIDES.map((src, i) => (
