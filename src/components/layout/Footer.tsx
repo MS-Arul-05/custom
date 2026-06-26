@@ -103,8 +103,9 @@ export default function Footer() {
           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
             © 2026 FITBOX. Designed &amp; printed in India. All prices in ₹ INR.
           </p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            UPI · Cards · NetBanking · Wallets
+          <p className="text-xs flex items-center gap-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            <span>UPI · Cards · NetBanking · Wallets</span>
+            <Link href="/admin" className="hover:text-white transition-colors">Admin</Link>
           </p>
         </div>
       </div>

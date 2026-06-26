@@ -5,6 +5,7 @@ import {
   Sparkles, Upload, Type, Eye, Check, ChevronLeft, ChevronRight, Shirt, Wand2, Loader2, Trash2, RotateCw, Send, Mail,
 } from 'lucide-react'
 import { useCartStore } from '@/store/cart'
+import { useAdminStore } from '@/store/admin'
 import { formatPrice } from '@/lib/utils'
 import { sendCustomOrder, renderFrontPreview } from '@/lib/order'
 import {
@@ -39,6 +40,7 @@ function contrastFor(hex: string): string {
 export default function CustomizeClient() {
   const router = useRouter()
   const addItem = useCartStore((s) => s.addItem)
+  const addOrder = useAdminStore((s) => s.addOrder)
 
   const [step, setStep] = useState(0)
   const [style, setStyle] = useState<BuilderStyle>(BUILDER_STYLES[0])
@@ -205,6 +207,15 @@ export default function CustomizeClient() {
         front: frontDesign,
         back: backDesign,
         previewDataUrl,
+      })
+      // Record for the admin dashboard.
+      addOrder({
+        source: 'custom',
+        customer: { name: order.name, email: order.email, phone: order.phone, address: order.address },
+        summary: `Custom ${style.name} · ${color.name}${text.content ? ` · “${text.content}”` : ''} · ${size}`,
+        quantity: order.quantity,
+        total: price * order.quantity,
+        preview: previewDataUrl ?? undefined,
       })
       setSendStatus({ ok: true, msg: 'Order sent! We’ll get back to you shortly.' })
     } catch (err) {

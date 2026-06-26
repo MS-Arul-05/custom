@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Lock, ChevronRight, Tag, Gift, Smartphone, CreditCard, Landmark, Wallet, Check } from 'lucide-react'
 import { useCartStore } from '@/store/cart'
+import { useAdminStore } from '@/store/admin'
 import { formatPrice, shippingFor } from '@/lib/utils'
 
 type PayMethod = 'upi' | 'card' | 'netbanking' | 'wallet'
@@ -43,6 +44,7 @@ function Field({ label, id, type = 'text', placeholder, required = true, classNa
 export default function CheckoutPage() {
   const router = useRouter()
   const { items, subtotal, itemCount, clear } = useCartStore()
+  const addOrder = useAdminStore((s) => s.addOrder)
   const [pay, setPay] = useState<PayMethod>('upi')
   const [couponInput, setCouponInput] = useState('')
   const [coupon, setCoupon] = useState<string | null>(null)
@@ -81,6 +83,8 @@ export default function CheckoutPage() {
   const placeOrder = (e: React.FormEvent) => {
     e.preventDefault()
     setPlacing(true)
+    const fd = new FormData(e.currentTarget as HTMLFormElement)
+    const get = (k: string) => (fd.get(k) as string) || ''
     const snapshot = {
       orderId: `FB${Math.floor(100000 + Math.random() * 900000)}`,
       items: items.map((i) => ({ name: i.name, color: i.color, size: i.size, quantity: i.quantity, price: i.price, image: i.image })),
@@ -90,6 +94,20 @@ export default function CheckoutPage() {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('fitbox-last-order', JSON.stringify(snapshot))
     }
+    // Record the order for the admin dashboard.
+    addOrder({
+      source: 'checkout',
+      customer: {
+        name: get('name'),
+        email: get('email'),
+        phone: get('phone'),
+        address: [get('address'), get('city'), get('state'), get('pincode')].filter(Boolean).join(', '),
+      },
+      summary: items.map((i) => `${i.name} (${i.color}/${i.size}) ×${i.quantity}`).join(', '),
+      quantity: count,
+      total: grandTotal,
+      preview: items[0]?.image,
+    })
     setTimeout(() => {
       clear()
       router.push('/checkout/success')

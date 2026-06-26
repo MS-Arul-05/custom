@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { PRODUCTS } from '@/lib/products'
+import { useAdminStore } from '@/store/admin'
 import type { Category } from '@/types'
 import ProductCard from '@/components/product/ProductCard'
 import FilterSidebar, { PRICE_MAX, CATEGORY_LABELS } from '@/components/product/FilterSidebar'
@@ -38,8 +39,11 @@ export default function ShopClient() {
     if (sortParam) setSort(sortParam)
   }, [categoryParam, collectionParam, sortParam])
 
+  const adminProducts = useAdminStore((s) => s.products)
+
   const filtered = useMemo(() => {
-    let list = PRODUCTS.filter((p) => {
+    const ALL = [...adminProducts, ...PRODUCTS]
+    let list = ALL.filter((p) => {
       if (filters.categories.length && !filters.categories.includes(p.category)) return false
       if (filters.collections.length && !filters.collections.some((c) => p.collections?.includes(c))) return false
       if (filters.fits.length && !filters.fits.includes(p.fit)) return false
@@ -65,7 +69,7 @@ export default function ShopClient() {
         break
     }
     return list
-  }, [filters, sort])
+  }, [filters, sort, adminProducts])
 
   const heading = filters.categories.length === 1 ? CATEGORY_LABELS[filters.categories[0]] : 'Shop all'
 
