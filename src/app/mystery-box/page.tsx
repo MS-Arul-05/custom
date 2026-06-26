@@ -15,15 +15,15 @@ export default function MysteryBoxPage() {
   return (
     <div>
       {/* Hero */}
-      <section style={{ background: 'var(--bg-dark)' }}>
+      <section style={{ background: '#F2E8D9' }}>
         <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 text-center">
           <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] px-3 py-1.5 rounded-full mb-5" style={{ background: 'rgba(255,107,0,0.18)', color: 'var(--accent)' }}>
             <Gift size={13} /> Always worth more than you pay
           </span>
-          <h1 className="font-heading font-extrabold tracking-tight text-white" style={{ fontSize: 'clamp(34px, 5vw, 64px)' }}>
+          <h1 className="font-heading font-extrabold tracking-tight" style={{ fontSize: 'clamp(34px, 5vw, 64px)', color: '#16182B' }}>
             Unbox a mystery fit
           </h1>
-          <p className="text-base mt-4 max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.65)' }}>
+          <p className="text-base mt-4 max-w-lg mx-auto" style={{ color: 'rgba(30,26,20,0.65)' }}>
             Pick your vibe, choose a tier, and let the algorithm surprise you. Every box beats its price.
           </p>
         </div>
@@ -40,7 +40,6 @@ export default function MysteryBoxPage() {
               <Image src={c.image} alt={c.title} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="(max-width: 640px) 50vw, 25vw" />
               <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.82) 100%)' }} />
               <div className="absolute bottom-0 left-0 right-0 p-4">
-                <span className="text-3xl">{c.emoji}</span>
                 <h3 className="font-heading font-bold text-xl text-white mt-1">{c.title}</h3>
                 <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.8)' }}>{c.blurb}</p>
                 <span className="inline-flex items-center gap-1 text-xs font-bold mt-2" style={{ color: 'var(--accent)' }}>

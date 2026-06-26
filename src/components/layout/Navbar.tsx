@@ -1,10 +1,11 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { ShoppingBag, Menu, X, Search, Zap, Store, Palette, Gift, LayoutGrid, Flame } from 'lucide-react'
+import { ShoppingBag, Menu, X, Search, Zap, Store, Palette, Gift, LayoutGrid, Flame, Home } from 'lucide-react'
 import { useCartStore } from '@/store/cart'
 
 const NAV_LINKS = [
+  { href: '/', label: 'Home', icon: Home },
   { href: '/shop', label: 'Shop', icon: Store },
   { href: '/customize', label: 'Customize', icon: Palette, highlight: true },
   { href: '/mystery-box', label: 'Mystery Box', icon: Gift },
@@ -56,17 +57,9 @@ export default function Navbar() {
                 key={link.href}
                 href={link.href}
                 className="text-base font-semibold flex items-center gap-1.5 transition-colors"
-                style={{ color: link.highlight ? 'var(--accent)' : 'var(--text-secondary)' }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.color = link.highlight
-                    ? 'var(--accent-hover)'
-                    : 'var(--text-primary)')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.color = link.highlight
-                    ? 'var(--accent)'
-                    : 'var(--text-secondary)')
-                }
+                style={{ color: 'var(--text-primary)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
               >
                 <link.icon size={16} />
                 {link.label}
@@ -140,15 +133,15 @@ export default function Navbar() {
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
                   className="py-2.5 px-3 rounded-btn text-base font-semibold flex items-center gap-3"
-                  style={{ color: link.highlight ? 'var(--accent)' : 'var(--text-primary)' }}
+                  style={{ color: 'var(--text-primary)' }}
                 >
                   <span
                     className="flex items-center justify-center rounded-lg shrink-0"
                     style={{
                       width: 34,
                       height: 34,
-                      background: link.highlight ? 'var(--accent)' : 'rgba(0,0,0,0.05)',
-                      color: link.highlight ? '#fff' : 'var(--text-primary)',
+                      background: 'rgba(0,0,0,0.05)',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     <link.icon size={18} />

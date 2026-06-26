@@ -7,7 +7,7 @@ import { formatPrice } from '@/lib/utils'
 export default function DropsSection({ products }: { products: Product[] }) {
   if (products.length === 0) return null
   return (
-    <section style={{ background: 'var(--bg-dark)' }}>
+    <section style={{ background: '#F2E8D9' }}>
       <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
         <div className="flex items-end justify-between mb-10 gap-4">
           <div>
@@ -17,14 +17,14 @@ export default function DropsSection({ products }: { products: Product[] }) {
             >
               <Flame size={13} /> Live now
             </span>
-            <h2 className="font-heading font-extrabold tracking-tight text-white" style={{ fontSize: 'clamp(28px, 4vw, 48px)' }}>
+            <h2 className="font-heading font-extrabold tracking-tight" style={{ fontSize: 'clamp(28px, 4vw, 48px)', color: '#16182B' }}>
               Limited Drops
             </h2>
-            <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            <p className="text-sm mt-2" style={{ color: 'rgba(30,26,20,0.6)' }}>
               Small runs. No restock promises. When they&apos;re gone, they&apos;re gone.
             </p>
           </div>
-          <Link href="/drops" className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-white shrink-0">
+          <Link href="/drops" className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold shrink-0" style={{ color: '#16182B' }}>
             All drops <ArrowRight size={15} />
           </Link>
         </div>
@@ -34,7 +34,7 @@ export default function DropsSection({ products }: { products: Product[] }) {
             <Link key={p.id} href={`/shop/${p.slug}`} className="group block">
               <div
                 className="relative aspect-[4/5] overflow-hidden rounded-card"
-                style={{ background: 'rgba(255,255,255,0.05)' }}
+                style={{ background: '#FFFFFF' }}
               >
                 <Image
                   src={p.images[0]}
@@ -50,7 +50,7 @@ export default function DropsSection({ products }: { products: Product[] }) {
                   Drop
                 </span>
               </div>
-              <p className="text-sm font-semibold mt-3 text-white">{p.name}</p>
+              <p className="text-sm font-semibold mt-3" style={{ color: '#16182B' }}>{p.name}</p>
               <p className="text-sm font-bold mt-0.5" style={{ color: 'var(--accent)' }}>
                 {formatPrice(p.salePrice ?? p.price)}
               </p>
