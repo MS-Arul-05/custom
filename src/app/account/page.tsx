@@ -3,13 +3,38 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { User, Package, MapPin, Heart, ArrowRight, LogOut } from 'lucide-react'
 
+const INPUT_STYLE = {
+  background: 'var(--bg-primary)',
+  border: '1px solid var(--border)',
+  color: 'var(--text-primary)',
+} as const
+
 export default function AccountPage() {
   const [signedIn, setSignedIn] = useState(false)
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState('')
 
   const handleSignIn = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setError('')
+    setSignedIn(true)
+  }
+
+  const handleSignUp = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (password !== confirm) {
+      setError('Passwords do not match.')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+    setError('')
     setSignedIn(true)
   }
 
@@ -24,63 +49,165 @@ export default function AccountPage() {
             className="font-heading font-extrabold tracking-tight mb-2"
             style={{ fontSize: 'clamp(24px, 3vw, 32px)', color: 'var(--text-primary)' }}
           >
-            Welcome back
+            {mode === 'signin' ? 'Welcome back' : 'Create your account'}
           </h1>
           <p className="text-sm mb-7" style={{ color: 'var(--text-secondary)' }}>
-            Sign in to track orders, save fits, and cop drops faster.
+            {mode === 'signin'
+              ? 'Sign in to track orders, save fits, and cop drops faster.'
+              : 'Join FITBOX to track orders, save fits, and cop drops faster.'}
           </p>
 
-          <form onSubmit={handleSignIn} className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-xs font-bold mb-1.5"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full h-11 px-4 rounded-btn text-sm outline-none"
-                style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-xs font-bold mb-1.5"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full h-11 px-4 rounded-btn text-sm outline-none"
-                style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full h-12 rounded-btn text-white text-sm font-bold transition-colors"
-              style={{ background: 'var(--accent)' }}
+          {error && (
+            <p
+              className="text-xs font-semibold rounded-btn px-3 py-2 mb-4"
+              style={{ background: 'rgba(179,38,30,0.1)', color: '#B3261E' }}
             >
-              Sign in
-            </button>
-          </form>
+              {error}
+            </p>
+          )}
+
+          {mode === 'signin' ? (
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full h-11 px-4 rounded-btn text-sm outline-none"
+                  style={INPUT_STYLE}
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full h-11 px-4 rounded-btn text-sm outline-none"
+                  style={INPUT_STYLE}
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full h-12 rounded-btn text-white text-sm font-bold transition-colors"
+                style={{ background: 'var(--accent)' }}
+              >
+                Sign in
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignUp} className="space-y-4">
+              <div>
+                <label htmlFor="name" className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                  Full name
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  className="w-full h-11 px-4 rounded-btn text-sm outline-none"
+                  style={INPUT_STYLE}
+                />
+              </div>
+              <div>
+                <label htmlFor="signup-email" className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                  Email
+                </label>
+                <input
+                  id="signup-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full h-11 px-4 rounded-btn text-sm outline-none"
+                  style={INPUT_STYLE}
+                />
+              </div>
+              <div>
+                <label htmlFor="signup-password" className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                  Password
+                </label>
+                <input
+                  id="signup-password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  className="w-full h-11 px-4 rounded-btn text-sm outline-none"
+                  style={INPUT_STYLE}
+                />
+              </div>
+              <div>
+                <label htmlFor="confirm" className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                  Confirm password
+                </label>
+                <input
+                  id="confirm"
+                  type="password"
+                  required
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full h-11 px-4 rounded-btn text-sm outline-none"
+                  style={INPUT_STYLE}
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full h-12 rounded-btn text-white text-sm font-bold transition-colors"
+                style={{ background: 'var(--accent)' }}
+              >
+                Create account
+              </button>
+            </form>
+          )}
 
           <p className="text-xs text-center mt-5" style={{ color: 'var(--text-tertiary)' }}>
-            New here?{' '}
-            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Create an account</span> at checkout.
+            {mode === 'signin' ? (
+              <>
+                New here?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signup')
+                    setError('')
+                  }}
+                  style={{ color: 'var(--accent)', fontWeight: 600 }}
+                >
+                  Create an account
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signin')
+                    setError('')
+                  }}
+                  style={{ color: 'var(--accent)', fontWeight: 600 }}
+                >
+                  Sign in
+                </button>
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -98,7 +225,10 @@ export default function AccountPage() {
         </h1>
         <button
           type="button"
-          onClick={() => setSignedIn(false)}
+          onClick={() => {
+            setSignedIn(false)
+            setMode('signin')
+          }}
           className="inline-flex items-center gap-2 h-10 px-4 text-sm font-bold rounded-btn transition-colors"
           style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
         >
@@ -118,7 +248,7 @@ export default function AccountPage() {
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between">
               <dt style={{ color: 'var(--text-secondary)' }}>Name</dt>
-              <dd style={{ color: 'var(--text-primary)', fontWeight: 600 }}>FITBOX Member</dd>
+              <dd style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{name || 'FITBOX Member'}</dd>
             </div>
             <div className="flex justify-between">
               <dt style={{ color: 'var(--text-secondary)' }}>Email</dt>
