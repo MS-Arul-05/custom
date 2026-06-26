@@ -2,10 +2,11 @@
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Sparkles, Upload, Type, Eye, Check, ChevronLeft, ChevronRight, Shirt, Wand2, Loader2, Trash2, RotateCw,
+  Sparkles, Upload, Type, Eye, Check, ChevronLeft, ChevronRight, Shirt, Wand2, Loader2, Trash2, RotateCw, Send, Mail,
 } from 'lucide-react'
 import { useCartStore } from '@/store/cart'
 import { formatPrice } from '@/lib/utils'
+import { sendCustomOrder, renderFrontPreview } from '@/lib/order'
 import {
   BUILDER_STYLES, BUILDER_COLORS, BUILDER_FONTS, DESIGN_TEMPLATES, TEXT_ALIGN, generateAIDesign,
   type BuilderStyle, type BuilderColor, type BuilderFontId, type TextAlign,
@@ -20,6 +21,21 @@ const STEPS = ['Style', 'Colour', 'Design', 'Text', 'Preview', 'Add to cart']
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
 const NONE: Design = { kind: 'none', value: '' }
 
+const HEX_RE = /^#([0-9a-fA-F]{6})$/
+
+/** Pick a readable print colour (black/white) for a given garment hex. */
+function contrastFor(hex: string): string {
+  const m = HEX_RE.exec(hex)
+  if (!m) return '#FFFFFF'
+  const n = parseInt(m[1], 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  // Perceived luminance (0–255); light garments get dark text and vice-versa.
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b
+  return lum > 150 ? '#1A1A1A' : '#FFFFFF'
+}
+
 export default function CustomizeClient() {
   const router = useRouter()
   const addItem = useCartStore((s) => s.addItem)
@@ -33,10 +49,34 @@ export default function CustomizeClient() {
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [text, setText] = useState({ content: '', fontId: 'heading' as BuilderFontId, color: '#FFFFFF', align: 'center' as TextAlign })
+  const [garmentHexInput, setGarmentHexInput] = useState(color.hex)
+  const [textHexInput, setTextHexInput] = useState(text.color)
+
+  // Apply a free-form garment colour (from picker or hex field).
+  const applyGarmentColor = (hex: string) => {
+    setGarmentHexInput(hex)
+    if (!HEX_RE.test(hex)) return
+    const contrast = contrastFor(hex)
+    setColor({ name: hex.toUpperCase(), hex, contrast })
+    setText((t) => ({ ...t, color: contrast }))
+    setTextHexInput(contrast)
+  }
+
+  // Apply a free-form text colour.
+  const applyTextColor = (hex: string) => {
+    setTextHexInput(hex)
+    if (!HEX_RE.test(hex)) return
+    setText((t) => ({ ...t, color: hex }))
+  }
   const [side, setSide] = useState<Side>('front')
   const [rotation, setRotation] = useState(0)
   const [size, setSize] = useState('M')
   const [added, setAdded] = useState(false)
+
+  // Custom-order email form
+  const [order, setOrder] = useState({ name: '', email: '', phone: '', address: '', quantity: 1 })
+  const [sending, setSending] = useState(false)
+  const [sendStatus, setSendStatus] = useState<{ ok: boolean; msg: string } | null>(null)
 
   const [frontPos, setFrontPos] = useState<Pos>({ x: 50, y: 42 })
   const [backPos, setBackPos] = useState<Pos>({ x: 50, y: 42 })
@@ -129,6 +169,49 @@ export default function CustomizeClient() {
     })
     setAdded(true)
     setTimeout(() => router.push('/cart'), 900)
+  }
+
+  const handleSendOrder = async () => {
+    if (!order.name || !order.phone || !order.address) {
+      setSendStatus({ ok: false, msg: 'Please fill in name, phone and address.' })
+      return
+    }
+    setSending(true)
+    setSendStatus(null)
+    try {
+      const previewDataUrl = await renderFrontPreview({
+        mockFront: style.mockFront,
+        colorHex: color.hex,
+        blend: style.blend,
+        frontDesign,
+        text: { content: text.content, color: text.color, fontCss: BUILDER_FONTS.find((f) => f.id === text.fontId)?.css ?? 'sans-serif' },
+      })
+      await sendCustomOrder({
+        name: order.name,
+        email: order.email,
+        phone: order.phone,
+        address: order.address,
+        quantity: order.quantity,
+        styleName: style.name,
+        colorName: color.name,
+        colorHex: color.hex,
+        blend: style.blend,
+        size,
+        textContent: text.content,
+        textColor: text.color,
+        fontLabel: BUILDER_FONTS.find((f) => f.id === text.fontId)?.label ?? '',
+        unitPrice: formatPrice(price),
+        total: formatPrice(price * order.quantity),
+        front: frontDesign,
+        back: backDesign,
+        previewDataUrl,
+      })
+      setSendStatus({ ok: true, msg: 'Order sent! We’ll get back to you shortly.' })
+    } catch (err) {
+      setSendStatus({ ok: false, msg: err instanceof Error ? err.message : 'Could not send the order.' })
+    } finally {
+      setSending(false)
+    }
   }
 
   // ---- garment preview ----
@@ -303,11 +386,37 @@ export default function CustomizeClient() {
             <Panel title="Choose a colour" icon={Sparkles}>
               <div className="flex flex-wrap gap-3">
                 {BUILDER_COLORS.map((c) => (
-                  <button key={c.name} type="button" onClick={() => { setColor(c); setText((t) => ({ ...t, color: c.contrast })) }} className="flex flex-col items-center gap-2">
-                    <span className="w-14 h-14 rounded-full" style={{ background: c.hex, border: '1px solid rgba(0,0,0,0.15)', outline: color.name === c.name ? '2px solid var(--accent)' : '2px solid transparent', outlineOffset: '2px' }} />
-                    <span className="text-xs font-semibold" style={{ color: color.name === c.name ? 'var(--accent)' : 'var(--text-secondary)' }}>{c.name}</span>
+                  <button key={c.name} type="button" onClick={() => { setColor(c); setGarmentHexInput(c.hex); setText((t) => ({ ...t, color: c.contrast })); setTextHexInput(c.contrast) }} className="flex flex-col items-center gap-2">
+                    <span className="w-14 h-14 rounded-full" style={{ background: c.hex, border: '1px solid rgba(0,0,0,0.15)', outline: color.hex.toLowerCase() === c.hex.toLowerCase() ? '2px solid var(--accent)' : '2px solid transparent', outlineOffset: '2px' }} />
+                    <span className="text-xs font-semibold" style={{ color: color.hex.toLowerCase() === c.hex.toLowerCase() ? 'var(--accent)' : 'var(--text-secondary)' }}>{c.name}</span>
                   </button>
                 ))}
+              </div>
+
+              {/* Custom garment colour */}
+              <div className="mt-6 pt-5 border-t" style={{ borderColor: 'var(--border)' }}>
+                <p className="text-xs font-bold uppercase tracking-wide mb-2.5" style={{ color: 'var(--text-secondary)' }}>Custom colour</p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    aria-label="Pick a custom garment colour"
+                    value={HEX_RE.test(garmentHexInput) ? garmentHexInput : color.hex}
+                    onChange={(e) => applyGarmentColor(e.target.value)}
+                    className="w-12 h-12 rounded-btn cursor-pointer bg-transparent p-0"
+                    style={{ border: '1px solid var(--border)' }}
+                  />
+                  <input
+                    type="text"
+                    aria-label="Garment colour hex code"
+                    value={garmentHexInput}
+                    onChange={(e) => applyGarmentColor(e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`)}
+                    placeholder="#633E33"
+                    maxLength={7}
+                    className="w-32 h-12 px-3 rounded-btn text-sm font-mono uppercase outline-none"
+                    style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                  />
+                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Enter any hex, e.g. #1A1A1A</span>
+                </div>
               </div>
             </Panel>
           )}
@@ -382,11 +491,29 @@ export default function CustomizeClient() {
                 <div className="flex gap-8">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>Colour</p>
-                    <div className="flex gap-2">
-                      {['#FFFFFF', '#1A1A1A', '#FF6B00', '#FFB400', '#2B4C7E', '#B3261E'].map((c) => (
-                        <button key={c} type="button" onClick={() => setText((t) => ({ ...t, color: c }))} aria-label={`Text colour ${c}`} className="w-8 h-8 rounded-full" style={{ background: c, border: '1px solid rgba(0,0,0,0.2)', outline: text.color === c ? '2px solid var(--accent)' : 'none', outlineOffset: '2px' }} />
+                    <div className="flex gap-2 items-center">
+                      {['#FFFFFF', '#1A1A1A', '#FF6B00', '#FFB400', '#2B4C7E', '#B3261E', '#633E33'].map((c) => (
+                        <button key={c} type="button" onClick={() => { setText((t) => ({ ...t, color: c })); setTextHexInput(c) }} aria-label={`Text colour ${c}`} className="w-8 h-8 rounded-full" style={{ background: c, border: '1px solid rgba(0,0,0,0.2)', outline: text.color.toLowerCase() === c.toLowerCase() ? '2px solid var(--accent)' : 'none', outlineOffset: '2px' }} />
                       ))}
+                      <input
+                        type="color"
+                        aria-label="Pick a custom text colour"
+                        value={HEX_RE.test(textHexInput) ? textHexInput : text.color}
+                        onChange={(e) => applyTextColor(e.target.value)}
+                        className="w-8 h-8 rounded-full cursor-pointer bg-transparent p-0"
+                        style={{ border: '1px solid rgba(0,0,0,0.2)' }}
+                      />
                     </div>
+                    <input
+                      type="text"
+                      aria-label="Text colour hex code"
+                      value={textHexInput}
+                      onChange={(e) => applyTextColor(e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`)}
+                      placeholder="#633E33"
+                      maxLength={7}
+                      className="w-28 h-9 px-3 mt-2 rounded-btn text-xs font-mono uppercase outline-none"
+                      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                    />
                   </div>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>Align</p>
@@ -440,6 +567,31 @@ export default function CustomizeClient() {
               <button type="button" onClick={handleAddToCart} className="w-full h-12 rounded-btn text-white text-sm font-bold flex items-center justify-center gap-2" style={{ background: added ? 'var(--success)' : 'var(--accent)' }}>
                 {added ? <><Check size={16} /> Added! Taking you to cart…</> : <>Add to cart · {formatPrice(price)}</>}
               </button>
+
+              {/* Email this custom order to FITBOX */}
+              <div className="mt-7 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+                <p className="text-sm font-bold flex items-center gap-2 mb-1" style={{ color: 'var(--text-primary)' }}>
+                  <Mail size={16} style={{ color: 'var(--accent)' }} /> Order direct (email us your design)
+                </p>
+                <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
+                  Send your design, preview and details straight to our studio and we’ll confirm by email.
+                </p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <input value={order.name} onChange={(e) => setOrder((o) => ({ ...o, name: e.target.value }))} placeholder="Full name *" aria-label="Full name" className="h-11 px-4 rounded-btn text-sm outline-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  <input value={order.phone} onChange={(e) => setOrder((o) => ({ ...o, phone: e.target.value }))} placeholder="Phone number *" aria-label="Phone number" inputMode="tel" className="h-11 px-4 rounded-btn text-sm outline-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  <input value={order.email} onChange={(e) => setOrder((o) => ({ ...o, email: e.target.value }))} placeholder="Your email (for reply)" aria-label="Your email" type="email" className="h-11 px-4 rounded-btn text-sm outline-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  <input value={order.quantity} onChange={(e) => setOrder((o) => ({ ...o, quantity: Math.max(1, Number(e.target.value) || 1) }))} placeholder="Quantity" aria-label="Quantity" type="number" min={1} className="h-11 px-4 rounded-btn text-sm outline-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  <textarea value={order.address} onChange={(e) => setOrder((o) => ({ ...o, address: e.target.value }))} placeholder="Delivery address *" aria-label="Delivery address" rows={2} className="sm:col-span-2 px-4 py-3 rounded-btn text-sm outline-none resize-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                </div>
+                {sendStatus && (
+                  <p className="text-xs font-semibold rounded-btn px-3 py-2 mt-3" style={{ background: sendStatus.ok ? 'rgba(46,158,58,0.1)' : 'rgba(179,38,30,0.1)', color: sendStatus.ok ? 'var(--success)' : '#B3261E' }}>
+                    {sendStatus.msg}
+                  </p>
+                )}
+                <button type="button" onClick={handleSendOrder} disabled={sending} className="w-full h-12 mt-3 rounded-btn text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: 'var(--bg-dark)', color: '#fff' }}>
+                  {sending ? <><Loader2 size={16} className="animate-spin" /> Sending…</> : <><Send size={16} /> Email my order to FITBOX</>}
+                </button>
+              </div>
             </Panel>
           )}
 
