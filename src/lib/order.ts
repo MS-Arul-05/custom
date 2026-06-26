@@ -29,16 +29,25 @@ export interface CustomOrderPayload {
 }
 
 const ENDPOINT = 'https://api.web3forms.com/submit'
+const IMGBB_ENDPOINT = 'https://api.imgbb.com/1/upload'
 
-function dataUrlToFile(dataUrl: string, filename: string): File | null {
+/**
+ * Upload a data-URL image to imgbb (free image host) and return its public URL.
+ * Web3Forms' free plan can't attach files, so we link hosted images instead.
+ * Returns null if no key is configured or the upload fails.
+ */
+async function hostImage(dataUrl: string, name: string): Promise<string | null> {
+  const key = process.env.NEXT_PUBLIC_IMGBB_API_KEY
+  if (!key || !dataUrl.startsWith('data:')) return null
   try {
-    const [head, body] = dataUrl.split(',')
-    if (!head || !body) return null
-    const mime = /data:(.*?);base64/.exec(head)?.[1] ?? 'image/png'
-    const bin = atob(body)
-    const arr = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
-    return new File([arr], filename, { type: mime })
+    const base64 = dataUrl.split(',')[1]
+    if (!base64) return null
+    const fd = new FormData()
+    fd.append('image', base64)
+    fd.append('name', name)
+    const res = await fetch(`${IMGBB_ENDPOINT}?key=${key}`, { method: 'POST', body: fd })
+    const json = await res.json()
+    return json?.data?.url ?? null
   } catch {
     return null
   }
@@ -64,6 +73,19 @@ export async function sendCustomOrder(p: CustomOrderPayload): Promise<void> {
       'Email is not configured yet. Add NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY to project/.env.local and restart the dev server.'
     )
   }
+
+  // Host images first (Web3Forms free plan can't attach files).
+  const [previewUrl, frontUrl, backUrl] = await Promise.all([
+    p.previewDataUrl ? hostImage(p.previewDataUrl, 'order-preview') : Promise.resolve(null),
+    p.front.kind === 'upload' ? hostImage(p.front.value, 'front-design') : Promise.resolve(null),
+    p.back.kind === 'upload' ? hostImage(p.back.value, 'back-design') : Promise.resolve(null),
+  ])
+
+  // For AI designs the value is already a public URL.
+  const frontLink = frontUrl ?? (p.front.kind === 'ai' ? p.front.value : null)
+  const backLink = backUrl ?? (p.back.kind === 'ai' ? p.back.value : null)
+  const linkOrNote = (link: string | null, kind: string) =>
+    link ?? (kind === 'upload' ? '(uploaded image — enable image hosting to receive it)' : describeDesign({ kind, value: '' }))
 
   const fd = new FormData()
   fd.append('access_key', accessKey)
@@ -92,6 +114,11 @@ export async function sendCustomOrder(p: CustomOrderPayload): Promise<void> {
     `Back:     ${describeDesign(p.back)}`,
     `Text:     ${p.textContent ? `“${p.textContent}” (${p.fontLabel}, ${p.textColor})` : 'None'}`,
     '',
+    '— IMAGES —',
+    `Preview:      ${previewUrl ?? '(enable image hosting to receive the rendered preview)'}`,
+    `Front design: ${linkOrNote(frontLink, p.front.kind)}`,
+    `Back design:  ${linkOrNote(backLink, p.back.kind)}`,
+    '',
     '— PRICING —',
     `Unit price: ${p.unitPrice}`,
     `Quantity:   ${p.quantity}`,
@@ -110,20 +137,9 @@ export async function sendCustomOrder(p: CustomOrderPayload): Promise<void> {
   fd.append('Size', p.size)
   fd.append('Unit price', p.unitPrice)
   fd.append('Total', p.total)
-
-  // Attachments: rendered preview + raw uploaded designs.
-  if (p.previewDataUrl) {
-    const preview = dataUrlToFile(p.previewDataUrl, 'order-preview.png')
-    if (preview) fd.append('Preview', preview)
-  }
-  if (p.front.kind === 'upload') {
-    const f = dataUrlToFile(p.front.value, 'front-design.png')
-    if (f) fd.append('Front design', f)
-  }
-  if (p.back.kind === 'upload') {
-    const b = dataUrlToFile(p.back.value, 'back-design.png')
-    if (b) fd.append('Back design', b)
-  }
+  if (previewUrl) fd.append('Preview image', previewUrl)
+  if (frontLink) fd.append('Front design image', frontLink)
+  if (backLink) fd.append('Back design image', backLink)
 
   const res = await fetch(ENDPOINT, { method: 'POST', body: fd })
   const json = await res.json().catch(() => ({ success: false, message: 'Bad response' }))
