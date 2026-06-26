@@ -139,10 +139,20 @@ export default function Navbar() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
-                  className="py-3 px-3 rounded-btn text-base font-semibold flex items-center gap-2"
+                  className="py-2.5 px-3 rounded-btn text-base font-semibold flex items-center gap-3"
                   style={{ color: link.highlight ? 'var(--accent)' : 'var(--text-primary)' }}
                 >
-                  <link.icon size={18} />
+                  <span
+                    className="flex items-center justify-center rounded-lg shrink-0"
+                    style={{
+                      width: 34,
+                      height: 34,
+                      background: link.highlight ? 'var(--accent)' : 'rgba(0,0,0,0.05)',
+                      color: link.highlight ? '#fff' : 'var(--text-primary)',
+                    }}
+                  >
+                    <link.icon size={18} />
+                  </span>
                   {link.label}
                 </Link>
               ))}

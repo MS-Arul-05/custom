@@ -33,8 +33,8 @@ export default function Hero() {
       />
       <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 lg:py-24 relative">
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-          {/* Left half — wording (shown first on mobile) */}
-          <div>
+          {/* Left half — wording (shown first + centered on mobile) */}
+          <div className="text-center lg:text-left">
             <span
               className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] px-3 py-1.5 rounded-full mb-6 text-white"
               style={{ background: '#1A1A2E' }}
@@ -49,11 +49,11 @@ export default function Hero() {
               <br />
               YOU <span style={{ color: 'var(--accent)' }}>MEAN.</span>
             </h1>
-            <p className="text-base md:text-lg mt-6 max-w-md leading-relaxed" style={{ color: 'rgba(30,26,20,0.7)' }}>
+            <p className="text-base md:text-lg mt-6 max-w-md mx-auto lg:mx-0 leading-relaxed" style={{ color: 'rgba(30,26,20,0.7)' }}>
               Design your own tee in real time, cop limited drops, and unbox mystery fits.
               Bold streetwear, printed in India, paid by UPI.
             </p>
-            <div className="flex flex-wrap gap-3 mt-8">
+            <div className="flex flex-wrap justify-center lg:justify-start gap-3 mt-8">
               <Link
                 href="/customize"
                 className="inline-flex items-center gap-2 h-12 px-7 rounded-btn text-sm font-bold text-white transition-colors"
@@ -69,7 +69,7 @@ export default function Hero() {
                 Shop drops <ArrowRight size={16} />
               </Link>
             </div>
-            <div className="flex items-center gap-5 mt-10">
+            <div className="flex items-center justify-center lg:justify-start gap-5 mt-10">
               {[
                 { n: '50k+', l: 'fits shipped' },
                 { n: '4.8★', l: 'avg rating' },
